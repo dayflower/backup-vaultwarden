@@ -2,7 +2,6 @@ package main
 
 import (
 	"archive/tar"
-	"bytes"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -10,13 +9,10 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"slices"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/Luzifer/go-openssl/v4"
 	"github.com/jessevdk/go-flags"
@@ -25,6 +21,12 @@ import (
 	"gopkg.in/ini.v1"
 
 	_ "github.com/ncruces/go-sqlite3/embed"
+
+	_ "github.com/rclone/rclone/backend/all"
+	rcloneCmd "github.com/rclone/rclone/cmd"
+	rcloneConfig "github.com/rclone/rclone/fs/config"
+	rcloneConfigFile "github.com/rclone/rclone/fs/config/configfile"
+	rcloneOperations "github.com/rclone/rclone/fs/operations"
 )
 
 type bvCtx struct {
@@ -457,33 +459,6 @@ func tempFileName(pattern string) (string, error) {
 	return name, nil
 }
 
-func execCommand(logger *slog.Logger, waitDelay time.Duration, command string, args ...string) (string, error) {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer cancel()
-
-	logger.Debug(fmt.Sprintf("Running command: %s %s", command, strings.Join(args, " ")))
-
-	cmd := exec.CommandContext(ctx, command, args...)
-
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = os.Stderr
-
-	cmd.Cancel = func() error {
-		return cmd.Process.Signal(os.Interrupt)
-	}
-
-	cmd.WaitDelay = waitDelay
-
-	err := cmd.Run()
-	if err != nil {
-		return "", err
-	}
-
-	return stdout.String(), nil
-
-}
-
 func getPassphrase() (string, error) {
 	passphrase, ok := os.LookupEnv("BACKUP_PASSPHRASE")
 	if !ok {
@@ -602,11 +577,25 @@ func setup(opts *options) (runRclone bool, arcFile string, encFile string, err e
 	return runRclone, arcFile, "", nil
 }
 
-func run(logger *slog.Logger, sourceDir string, targets string, arcBase string, arcFile string, encrypt bool, encFile string, rcloneDestination string, rcloneConfigFile string, preserveArchive bool) error {
-	const (
-		waitForSignal = 180 * time.Second
-	)
+func execRclone(logger *slog.Logger, configFile string, srcFile string, dest string) error {
+	ctx := context.Background()
 
+	if err := rcloneConfig.SetConfigPath(configFile); err != nil {
+		return err
+	}
+
+	rcloneConfigFile.Install()
+
+	rcloneCmd.SigInfoHandler()
+
+	fsrc, srcFileName, fdst := rcloneCmd.NewFsSrcFileDst([]string{srcFile, dest})
+
+	logger.Debug(fmt.Sprintf("fsrc: %s, srcFileName: %s, fdst: %s", fsrc, srcFileName, fdst))
+
+	return rcloneOperations.CopyFile(ctx, fdst, fsrc, srcFileName, srcFileName)
+}
+
+func run(logger *slog.Logger, sourceDir string, targets string, arcBase string, arcFile string, encrypt bool, encFile string, rcloneDestination string, rcloneConfigFile string, preserveArchive bool) error {
 	bt, err := backupTargetsFromString(targets)
 	if err != nil {
 		return err
@@ -628,8 +617,7 @@ func run(logger *slog.Logger, sourceDir string, targets string, arcBase string, 
 
 			logger.Info(fmt.Sprintf("Uploading backup file to %s", rcloneDestination))
 
-			out, err := execCommand(logger, waitForSignal, "rclone", "copy", "--config", rcloneConfigFile, arcFile, rcloneDestination)
-			logger.Debug(fmt.Sprintf("rclone output: %s", out))
+			err = execRclone(logger, rcloneConfigFile, arcFile, rcloneDestination)
 			if err != nil {
 				return err
 			}
@@ -661,8 +649,7 @@ func run(logger *slog.Logger, sourceDir string, targets string, arcBase string, 
 
 		logger.Info(fmt.Sprintf("Uploading encrypted backup file to %s", rcloneDestination))
 
-		out, err := execCommand(logger, waitForSignal, "rclone", "copy", "--config", rcloneConfigFile, encFile, rcloneDestination)
-		logger.Debug(fmt.Sprintf("rclone output: %s", out))
+		err = execRclone(logger, rcloneConfigFile, encFile, rcloneDestination)
 		if err != nil {
 			return err
 		}
