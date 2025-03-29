@@ -9,6 +9,7 @@ require (
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/ncruces/go-sqlite3 v0.24.1
 	golang.org/x/term v0.30.0
+	gopkg.in/ini.v1 v1.67.0
 )
 
 require (

@@ -2,21 +2,27 @@ package main
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
-	"path"
+	"os/exec"
+	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/Luzifer/go-openssl/v4"
 	"github.com/jessevdk/go-flags"
 	"github.com/ncruces/go-sqlite3"
 	"golang.org/x/term"
+	"gopkg.in/ini.v1"
 
 	_ "github.com/ncruces/go-sqlite3/embed"
 )
@@ -55,7 +61,7 @@ func (bv *bvCtx) backupRoot() error {
 }
 
 func (bv *bvCtx) backupFile(file string) error {
-	fname := path.Join(bv.srcdir, file)
+	fname := filepath.Join(bv.srcdir, file)
 
 	info, err := os.Stat(fname)
 	if err != nil {
@@ -77,7 +83,7 @@ func (bv *bvCtx) backupFile(file string) error {
 	defer f.Close()
 
 	if err = bv.tw.WriteHeader(&tar.Header{
-		Name:    path.Join(bv.arcbase, file),
+		Name:    filepath.Join(bv.arcbase, file),
 		Mode:    mode,
 		ModTime: info.ModTime(),
 		Size:    info.Size(),
@@ -96,7 +102,7 @@ func (bv *bvCtx) backupFile(file string) error {
 }
 
 func (bv *bvCtx) backupFilePattern(pattern string) error {
-	matches, err := filepath.Glob(path.Join(bv.srcdir, pattern))
+	matches, err := filepath.Glob(filepath.Join(bv.srcdir, pattern))
 	if err != nil {
 		return err
 	}
@@ -114,14 +120,14 @@ func (bv *bvCtx) backupFilePattern(pattern string) error {
 }
 
 func (bv *bvCtx) backupDir(dir string, skipDb bool) error {
-	if _, err := os.Stat(path.Join(bv.srcdir, dir)); err != nil {
+	if _, err := os.Stat(filepath.Join(bv.srcdir, dir)); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
 		return err
 	}
 
-	err := filepath.Walk(path.Join(bv.srcdir, dir), func(p string, info os.FileInfo, err error) error {
+	err := filepath.Walk(filepath.Join(bv.srcdir, dir), func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -149,7 +155,7 @@ func (bv *bvCtx) backupDir(dir string, skipDb bool) error {
 
 		if err = bv.tw.WriteHeader(&tar.Header{
 			Typeflag: typeflag,
-			Name:     path.Join(bv.arcbase, fname),
+			Name:     filepath.Join(bv.arcbase, fname),
 			Mode:     mode,
 			ModTime:  info.ModTime(),
 			Size:     info.Size(),
@@ -189,7 +195,7 @@ func (bv *bvCtx) backupDb(name string) error {
 		return err
 	}
 
-	fname := path.Join(bv.srcdir, "db.sqlite3")
+	fname := filepath.Join(bv.srcdir, "db.sqlite3")
 
 	info, err := os.Stat(fname)
 	if err != nil {
@@ -229,7 +235,7 @@ func (bv *bvCtx) backupDb(name string) error {
 	}
 
 	if err = bv.tw.WriteHeader(&tar.Header{
-		Name:    path.Join(bv.arcbase, name),
+		Name:    filepath.Join(bv.arcbase, name),
 		Mode:    mode,
 		ModTime: info.ModTime(),
 		Size:    fs.Size(),
@@ -451,6 +457,33 @@ func tempFileName(pattern string) (string, error) {
 	return name, nil
 }
 
+func execCommand(logger *slog.Logger, waitDelay time.Duration, command string, args ...string) (string, error) {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
+	logger.Debug(fmt.Sprintf("Running command: %s %s", command, strings.Join(args, " ")))
+
+	cmd := exec.CommandContext(ctx, command, args...)
+
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = os.Stderr
+
+	cmd.Cancel = func() error {
+		return cmd.Process.Signal(os.Interrupt)
+	}
+
+	cmd.WaitDelay = waitDelay
+
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+
+	return stdout.String(), nil
+
+}
+
 func getPassphrase() (string, error) {
 	passphrase, ok := os.LookupEnv("BACKUP_PASSPHRASE")
 	if !ok {
@@ -475,15 +508,169 @@ func logLevelForString(s string) (slog.Level, error) {
 }
 
 type options struct {
-	Output         string `short:"o" long:"output" description:"Output file (default: backup.tar.gz; backup.tar.gz.enc if --encrypt is set)"`
-	Targets        string `short:"t" long:"targets" description:"Backup targets" default:"default"`
-	Encrypt        bool   `short:"e" long:"encrypt" description:"Encrypt backup file"`
-	ArchiveBaseDir string `short:"b" long:"archive-base-dir" description:"Base directory in archive" default:"data/"`
-	LogLevel       string `short:"l" long:"loglevel" description:"Log level" required:"true" default:"info"`
+	Output            string `short:"o" long:"output" description:"Output file (default: backup.tar.gz; backup.tar.gz.enc if --encrypt is set)"`
+	Targets           string `short:"t" long:"targets" description:"Backup targets" default:"default"`
+	Encrypt           bool   `short:"e" long:"encrypt" description:"Encrypt backup file. The passphrase can be set via BACKUP_PASSPHRASE environment variable, or interactively"`
+	ArchiveBaseDir    string `short:"b" long:"archive-base-dir" description:"Base directory in archive" default:"data/"`
+	RcloneDestination string `short:"r" long:"rclone-destination" description:"Rclone destination path.  If set, the backup file will be uploaded to the remote."`
+	RcloneConfigFile  string `short:"c" long:"rclone-config-file" description:"Rclone config file."`
+	PreserveArchive   bool   `short:"k" long:"preserve-archive" description:"Preserve archive file after uploading to rclone destination"`
+	LogLevel          string `short:"l" long:"loglevel" description:"Log level" required:"true" default:"info"`
 
 	Args struct {
 		SourceDir string `positional-arg-name:"source-dir" description:"Source directory"`
 	} `positional-args:"true" required:"true"`
+}
+
+func setup(opts *options) (runRclone bool, arcFile string, encFile string, err error) {
+	const (
+		defArcFile = "backup.tar.gz"
+		defEncFile = "backup.tar.gz.enc"
+	)
+
+	if opts.RcloneDestination != "" {
+		if opts.RcloneConfigFile == "" {
+			return false, "", "", fmt.Errorf("rclone config file is required when rclone destination is set")
+		}
+
+		cfg, err := ini.Load(opts.RcloneConfigFile)
+		if err != nil {
+			return false, "", "", err
+		}
+
+		remotes := cfg.SectionStrings()
+		remote := slices.IndexFunc(remotes, func(remote string) bool {
+			return strings.HasPrefix(opts.RcloneDestination, remote+":")
+		})
+		if remote < 0 {
+			return false, "", "", fmt.Errorf("no rclone remote setting found for destination '%s'", opts.RcloneDestination)
+		}
+
+		if !opts.PreserveArchive {
+			if opts.Encrypt {
+				arcFile, err = tempFileName("vwb")
+				if err != nil {
+					return false, "", "", err
+				}
+
+				file := ""
+				if opts.Output == "" {
+					_, file = filepath.Split(defEncFile)
+				} else {
+					_, file = filepath.Split(opts.Output)
+				}
+				encFile = filepath.Join(os.TempDir(), file)
+
+				return true, arcFile, encFile, nil
+			}
+
+			file := ""
+			if opts.Output == "" {
+				_, file = filepath.Split(defArcFile)
+			} else {
+				_, file = filepath.Split(opts.Output)
+			}
+			arcFile = filepath.Join(os.TempDir(), file)
+
+			return true, arcFile, "", nil
+		}
+
+		runRclone = true
+	}
+
+	if opts.Encrypt {
+		arcFile, err = tempFileName("vwb")
+		if err != nil {
+			return false, "", "", err
+		}
+
+		if opts.Output == "" {
+			encFile = defEncFile
+		} else {
+			encFile = opts.Output
+		}
+
+		return runRclone, arcFile, encFile, nil
+	}
+
+	if opts.Output == "" {
+		arcFile = defArcFile
+	} else {
+		arcFile = opts.Output
+	}
+
+	return runRclone, arcFile, "", nil
+}
+
+func run(logger *slog.Logger, sourceDir string, targets string, arcBase string, arcFile string, encrypt bool, encFile string, rcloneDestination string, rcloneConfigFile string, preserveArchive bool) error {
+	const (
+		waitForSignal = 180 * time.Second
+	)
+
+	bt, err := backupTargetsFromString(targets)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("Creating backup file")
+	err = createBackup(logger, arcFile, sourceDir, arcBase, &bt)
+	if err != nil {
+		return err
+	}
+
+	if !encrypt {
+		logger.Info(fmt.Sprintf("Backup file created: %s", arcFile))
+
+		if rcloneDestination != "" {
+			if !preserveArchive {
+				defer os.Remove(arcFile)
+			}
+
+			logger.Info(fmt.Sprintf("Uploading backup file to %s", rcloneDestination))
+
+			out, err := execCommand(logger, waitForSignal, "rclone", "copy", "--config", rcloneConfigFile, arcFile, rcloneDestination)
+			logger.Debug(fmt.Sprintf("rclone output: %s", out))
+			if err != nil {
+				return err
+			}
+
+			logger.Info(fmt.Sprintf("Backup file uploaded to %s", rcloneDestination))
+		}
+
+		return nil
+	}
+
+	logger.Info("Encrypting backup file")
+
+	passphrase, err := getPassphrase()
+	if err != nil {
+		return err
+	}
+
+	err = encryptBackup(arcFile, encFile, passphrase)
+	if err != nil {
+		return err
+	}
+
+	logger.Info(fmt.Sprintf("Encrypted backup file created: %s", encFile))
+
+	if rcloneDestination != "" {
+		if !preserveArchive {
+			defer os.Remove(encFile)
+		}
+
+		logger.Info(fmt.Sprintf("Uploading encrypted backup file to %s", rcloneDestination))
+
+		out, err := execCommand(logger, waitForSignal, "rclone", "copy", "--config", rcloneConfigFile, encFile, rcloneDestination)
+		logger.Debug(fmt.Sprintf("rclone output: %s", out))
+		if err != nil {
+			return err
+		}
+
+		logger.Info(fmt.Sprintf("Encrypted backup file uploaded to %s", rcloneDestination))
+	}
+
+	return nil
 }
 
 func main() {
@@ -502,49 +689,30 @@ func main() {
 		Level: logLevel,
 	}))
 
-	if opts.Output == "" {
-		if opts.Encrypt {
-			opts.Output = "backup.tar.gz.enc"
-		} else {
-			opts.Output = "backup.tar.gz"
-		}
-	}
-
-	bt, err := backupTargetsFromString(opts.Targets)
+	runRclone, arcFile, encFile, err := setup(&opts)
 	if err != nil {
 		panic(err)
 	}
 
-	arcbase := opts.ArchiveBaseDir
-	_, abf := filepath.Split(arcbase)
+	logger.Debug(fmt.Sprintf("runRclone: %v, arcFile: %s, encFile: %s\n", runRclone, arcFile, encFile))
+
+	arcBase := opts.ArchiveBaseDir
+	_, abf := filepath.Split(arcBase)
 	if abf != "" {
-		arcbase += "/" // FIXME?
+		arcBase += "/" // FIXME?
 	}
 
-	arcfile := opts.Output
-	if opts.Encrypt {
-		arcfile, err = tempFileName("vwb")
-		if err != nil {
-			panic(err)
-		}
+	rcloneDestination := ""
+	rcloneConfigFile := ""
+	preserveArchive := false
+	if runRclone {
+		rcloneDestination = opts.RcloneDestination
+		rcloneConfigFile = opts.RcloneConfigFile
+		preserveArchive = opts.PreserveArchive
 	}
 
-	err = createBackup(logger, arcfile, opts.Args.SourceDir, arcbase, &bt)
+	err = run(logger, opts.Args.SourceDir, opts.Targets, arcBase, arcFile, opts.Encrypt, encFile, rcloneDestination, rcloneConfigFile, preserveArchive)
 	if err != nil {
 		panic(err)
-	}
-
-	if opts.Encrypt {
-		logger.Info("Encrypting backup file")
-
-		passphrase, err := getPassphrase()
-		if err != nil {
-			panic(err)
-		}
-
-		err = encryptBackup(arcfile, opts.Output, passphrase)
-		if err != nil {
-			panic(err)
-		}
 	}
 }
