@@ -294,10 +294,6 @@ func backupTargetsFromString(s string) (backupTargets, error) {
 			bt.Db = true
 			bt.Attachments = true
 			bt.Config = true
-
-			// FIXME: Remove following items
-			bt.Sends = true
-			bt.IconCache = true
 		case "db":
 			bt.Db = true
 		case "attachments":
