@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"syscall"
 
 	"github.com/Luzifer/go-openssl/v4"
 	"github.com/jessevdk/go-flags"
@@ -42,10 +41,7 @@ func (bv *bvCtx) backupRoot() error {
 		return err
 	}
 
-	uid, gid, mode := 0, 0, int64(0644)
-	if st, ok := info.Sys().(*syscall.Stat_t); ok {
-		uid, gid, mode = int(st.Uid), int(st.Gid), int64(st.Mode)
-	}
+	uid, gid, mode := fileStatOf(info)
 
 	if err = bv.tw.WriteHeader(&tar.Header{
 		Typeflag: tar.TypeDir,
@@ -73,10 +69,7 @@ func (bv *bvCtx) backupFile(file string) error {
 		return err
 	}
 
-	uid, gid, mode := 0, 0, int64(0644)
-	if st, ok := info.Sys().(*syscall.Stat_t); ok {
-		uid, gid, mode = int(st.Uid), int(st.Gid), int64(st.Mode)
-	}
+	uid, gid, mode := fileStatOf(info)
 
 	f, err := os.Open(fname)
 	if err != nil {
@@ -141,10 +134,7 @@ func (bv *bvCtx) backupDir(dir string, skipDb bool) error {
 
 		bv.logger.Debug(fmt.Sprintf("Found %s", fname))
 
-		uid, gid, mode := 0, 0, int64(0644)
-		if st, ok := info.Sys().(*syscall.Stat_t); ok {
-			uid, gid, mode = int(st.Uid), int(st.Gid), int64(st.Mode)
-		}
+		uid, gid, mode := fileStatOf(info)
 
 		typeflag := byte(0)
 		if info.IsDir() {
@@ -204,10 +194,7 @@ func (bv *bvCtx) backupDb(name string) error {
 		return err
 	}
 
-	uid, gid, mode := 0, 0, int64(0644)
-	if st, ok := info.Sys().(*syscall.Stat_t); ok {
-		uid, gid, mode = int(st.Uid), int(st.Gid), int64(st.Mode)
-	}
+	uid, gid, mode := fileStatOf(info)
 
 	db, err := sqlite3.Open(fname)
 	if err != nil {
