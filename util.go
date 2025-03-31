@@ -7,12 +7,12 @@ import (
 
 func handleDeferError(err error, f func() error) error {
 	if e := f(); e != nil {
-		if err == nil {
+		if err != nil {
 			return err
 		}
 		return fmt.Errorf("%w; %v", err, e)
 	}
-	return nil
+	return err
 }
 
 func tempFileName(pattern string) (string, error) {
