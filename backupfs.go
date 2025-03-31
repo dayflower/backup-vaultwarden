@@ -42,6 +42,8 @@ func (bv *bvCtx) backupRoot() error {
 		return err
 	}
 
+	bv.logger.Debug(fmt.Sprintf("Backed up root dir %s", bv.arcbase))
+
 	return nil
 }
 
@@ -83,6 +85,8 @@ func (bv *bvCtx) backupFile(file string) (err error) {
 	if err != nil {
 		return err
 	}
+
+	bv.logger.Debug(fmt.Sprintf("Backed up %s", file))
 
 	return nil
 }
@@ -149,6 +153,8 @@ func (bv *bvCtx) backupDir(dir string, skipDb bool) error {
 		}
 
 		if info.IsDir() {
+			bv.logger.Debug(fmt.Sprintf("Backed up dir %s", fname))
+
 			return nil
 		}
 
@@ -167,6 +173,8 @@ func (bv *bvCtx) backupDir(dir string, skipDb bool) error {
 			return err
 		}
 
+		bv.logger.Debug(fmt.Sprintf("Backed up %s", fname))
+
 		return nil
 	})
 	if err != nil {
@@ -182,7 +190,7 @@ func (bv *bvCtx) backupDb(name string) (err error) {
 		return err
 	}
 
-	fname := filepath.Join(bv.srcdir, "db.sqlite3")
+	fname := filepath.Join(bv.srcdir, name)
 
 	info, err := os.Stat(fname)
 	if err != nil {
@@ -196,7 +204,7 @@ func (bv *bvCtx) backupDb(name string) (err error) {
 		return err
 	}
 
-	bv.logger.Debug("Vacuuming db info backup db file")
+	bv.logger.Debug(fmt.Sprintf("Vacuuming db into backup db file %s", tmpname))
 	err = db.Exec(fmt.Sprintf("VACUUM INTO '%s'", tmpname))
 	if err != nil {
 		return err
@@ -241,6 +249,8 @@ func (bv *bvCtx) backupDb(name string) (err error) {
 	if err != nil {
 		return err
 	}
+
+	bv.logger.Debug(fmt.Sprintf("Backed up db %s", name))
 
 	return nil
 }
