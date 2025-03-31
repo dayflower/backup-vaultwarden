@@ -1,0 +1,9 @@
+apiVersion: v2
+name: backup-vaultwarden
+description: A Helm chart for backup-vaultwarden
+
+type: application
+
+version: 0.0.1
+
+appVersion: 0.0.5
