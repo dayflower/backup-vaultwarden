@@ -27,6 +27,48 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
 
+dockers:
+  - goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile.goreleaser
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+    image_templates:
+      - "ghcr.io/dayflower/{{ .ProjectName }}:latest-amd64"
+      - "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Version }}-amd64"
+      - "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Major }}-amd64"
+      - "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}-amd64"
+  - goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile.goreleaser
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm64"
+    image_templates:
+      - "ghcr.io/dayflower/{{ .ProjectName }}:latest-arm64"
+      - "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Version }}-arm64"
+      - "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Major }}-arm64"
+      - "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}-arm64"
+
+docker_manifests:
+  - name_template: "ghcr.io/dayflower/{{ .ProjectName }}:latest"
+    image_templates:
+      - "ghcr.io/dayflower/{{ .ProjectName }}:latest-amd64"
+      - "ghcr.io/dayflower/{{ .ProjectName }}:latest-arm64"
+  - name_template: "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Version }}-amd64"
+      - "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Major }}"
+    image_templates:
+      - "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Major }}-amd64"
+      - "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Major }}-arm64"
+  - name_template: "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}"
+    image_templates:
+      - "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}-amd64"
+      - "ghcr.io/dayflower/{{ .ProjectName }}:{{ .Major }}.{{ .Minor }}-arm64"
+
 changelog:
   disable: true
 

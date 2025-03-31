@@ -1,0 +1,11 @@
+# syntax=docker/dockerfile:1
+
+# This dockerfile is used by goreleaser.  You cannot use this in manual docker builds.
+
+FROM gcr.io/distroless/static-debian12:nonroot
+
+COPY --chown=nonroot:nonroot backup-vaultwarden /
+
+ENTRYPOINT ["/backup-vaultwarden"]
+
+CMD ["-h"]
