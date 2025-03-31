@@ -44,9 +44,9 @@ This is a default execution, so it will create `backup.tar.gz` in the current di
 
 This example specifies all targets (`all`), encrypts the backup (`-e`), and outputs it as `/tmp/backup.tar.gz.enc`.
 
-    $ backup-vaultwarden -t recommend -o vw.tar.gz -r gdrive:/vaultwarden/ -c $(HOME)/.config/rclone/rclone.conf /data
+    $ backup-vaultwarden -t recommended -o vw.tar.gz -r gdrive:/vaultwarden/ -c $(HOME)/.config/rclone/rclone.conf /data
 
-This example specifies the `recommend` target, outputs the backup as `vw.tar.gz`, and then uploads it to the `gdrive:/vaultwarden/` rclone remote using the configuration file at `$(HOME)/.config/rclone/rclone.conf`.
+This example specifies the `recommended` target, outputs the backup as `vw.tar.gz`, and then uploads it to the `gdrive:/vaultwarden/` rclone remote using the configuration file at `$(HOME)/.config/rclone/rclone.conf`.
 
 ### Backup Targets
 
@@ -65,12 +65,12 @@ The `--targets` option allows you to specify which parts of your Vaultwarden dat
 
 You can also use the following specifiers to backup common sets of data:
 
-| Specifier   | db  | attachments | key | config | sends | icon_cache | Description                                                                                           |
-| :---------- | :-: | :---------: | :-: | :----: | :---: | :--------: | :---------------------------------------------------------------------------------------------------- |
-| `every`     | ✅  |     ✅      | ✅  |   ✅   |  ✅   |     ✅     | Backs up everything found within the Vaultwarden data directory.                                      |
-| `all`       | ✅  |     ✅      | ✅  |   ✅   |  ✅   |     ✅     | Backs up all core data components.                                                                    |
-| `recommend` | ✅  |     ✅      | ✅  |   ✅   |       |            | Backs up the components marked as "Backup required" and "Backup recommended" in the Vaultwarden wiki. |
-| `default`   | ✅  |     ✅      |     |   ✅   |       |            | The default set of targets.                                                                           |
+| Specifier     | db  | attachments | key | config | sends | icon_cache | Description                                                                                           |
+| :------------ | :-: | :---------: | :-: | :----: | :---: | :--------: | :---------------------------------------------------------------------------------------------------- |
+| `every`       | ✅  |     ✅      | ✅  |   ✅   |  ✅   |     ✅     | Backs up everything found within the Vaultwarden data directory.                                      |
+| `all`         | ✅  |     ✅      | ✅  |   ✅   |  ✅   |     ✅     | Backs up all core data components.                                                                    |
+| `recommended` | ✅  |     ✅      | ✅  |   ✅   |       |            | Backs up the components marked as "Backup required" and "Backup recommended" in the Vaultwarden wiki. |
+| `default`     | ✅  |     ✅      |     |   ✅   |       |            | The default set of targets.                                                                           |
 
 If you do not specify the `--targets` option, the `default` target specifier will be used.
 
@@ -107,7 +107,7 @@ Here's an example of how to run the backup using Docker:
                -v $(HOME)/.config/rclone:/config/rclone:ro \
                -v $(PWD):/backup \
                ghcr.io/dayflower/backup-vaultwarden:latest \
-               -t recommend -o /backup/vw.tar.gz -r gdrive:/vaultwarden/ -c /config/rclone/rclone.conf -k /data
+               -t recommended -o /backup/vw.tar.gz -r gdrive:/vaultwarden/ -c /config/rclone/rclone.conf -k /data
 
 **Explanation:**
 
