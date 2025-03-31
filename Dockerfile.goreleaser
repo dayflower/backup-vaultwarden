@@ -2,7 +2,7 @@
 
 # This dockerfile is used by goreleaser.  You cannot use this in manual docker builds.
 
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian12:latest
 
 COPY --chown=nonroot:nonroot backup-vaultwarden /
 
