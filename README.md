@@ -34,6 +34,20 @@ A zero-dependency tool to backup your [Vaultwarden](https://github.com/dani-garc
     Arguments:
       source-dir:               Source directory
 
+### Examples
+
+    $ backup-vaultwarden /data
+
+This is a default execution, so it will create `backup.tar.gz` in the current directory by utilizing the default settings.
+
+    $ backup-vaultwarden -t all -e -o /tmp/backup.tar.gz.enc /data
+
+This example specifies all targets (`all`), encrypts the backup (`-e`), and outputs it as `/tmp/backup.tar.gz.enc`.
+
+    $ backup-vaultwarden -t recommend -o vw.tar.gz -r gdrive:/vaultwarden/ -c $(HOME)/.config/rclone/rclone.conf /data
+
+This example specifies the `recommend` target, outputs the backup as `vw.tar.gz`, and then uploads it to the `gdrive:/vaultwarden/` rclone remote using the configuration file at `$(HOME)/.config/rclone/rclone.conf`.
+
 ### Backup Targets
 
 The `--targets` option allows you to specify which parts of your Vaultwarden data to backup. You can specify multiple targets separated by commas. For more details on each target, see the [official wiki](https://github.com/dani-garcia/vaultwarden/wiki/Backing-up-your-vault).
@@ -82,6 +96,24 @@ To upload the backup file to cloud storage, you need to specify the destination 
     backup-vaultwarden -r gdrive:/vaultwarden -c /path/to/rclone.conf /path/to/vaultwarden/data
 
 In this example, `gdrive:/vaultwarden` refers to a remote named `gdrive` configured in your rclone configuration, and the `/vaultwarden` part specifies the directory within that remote where the backup will be uploaded. **You must also specify the path to your rclone configuration file using the `-c` or `--rclone-config-file` option.**
+
+## Docker
+
+A Docker image is available at [ghcr.io/dayflower/backup-vaultwarden](https://ghcr.io/dayflower/backup-vaultwarden). You can use this image to run the backup tool without installing it directly on your system.
+
+Here's an example of how to run the backup using Docker:
+
+    docker run --rm -v /path/to/vaultwarden/data:/data:ro \
+               -v $(HOME)/.config/rclone:/config/rclone:ro \
+               -v $(PWD):/backup \
+               ghcr.io/dayflower/backup-vaultwarden:latest \
+               -t recommend -o /backup/vw.tar.gz -r gdrive:/vaultwarden/ -c /config/rclone/rclone.conf -k /data
+
+**Explanation:**
+
+- `-v /path/to/vaultwarden/data:/data:ro`: Mounts your Vaultwarden data directory to `/data` inside the container in read-only mode. Replace `/path/to/vaultwarden/data` with the actual path to your Vaultwarden data directory.
+- `-v $(HOME)/.config/rclone:/config/rclone:ro`: Mounts your rclone configuration directory to `/config/rclone` inside the container in read-only mode.
+- `-v $(PWD):/backup`: Mounts your current working directory to `/backup` inside the container. This is where the `vw.tar.gz` backup file will be created and preserved.
 
 ## Important Security Note
 
