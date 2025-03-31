@@ -1,0 +1,91 @@
+# Default values for backup-vaultwarden.
+
+nameOverride: ""
+fullnameOverride: ""
+
+schedule: "0 1 * * *" # At 01:00 on every day
+
+backup:
+  # fileName: "backup.tar.gz"
+  # target: "default"
+  encrypt: {}
+  ## If backup.encrypt.secretName is specified, the backup will be encrypted using the passphrase stored in the secret.
+  # encrypt:
+  #   secretName: "vaultwarden-backup-passphrase"
+  #   key: "BACKUP_PASSPHRASE"
+  logLevel: "debug"
+
+## Example of backup
+# backup:
+#   fileName: "vaultwarden-backup.tar.gz"
+#   target: "all"
+#   encrypt:
+#     secretName: "vaultwarden-backup-passphrase"
+#     key: "passphrase"
+#   logLevel: "info"
+
+data:
+  volume:
+    name: "data"
+  # mountPath: "/data"
+
+rclone:
+  ## If rclone.destination is specified, the backup will be uploaded to the specified destination using rclone.
+  ## The destination must be in the format of <remote>:<path>.
+  ## For example, "gdrive:/vaultwarden" for Google Drive.
+  ## Do not specify file name. Just specify the destination directory only.
+  ## You must set rclone.conf.secretName when the destination is specified.
+  # destination: "..."
+  conf: {}
+  # conf:
+  #   secretName: "rclone-config"
+  #   key: "rclone.conf"
+  #   fileName: "rclone.conf"
+  #   mountPath: "/etc/rclone"
+  # preserveArchive: false
+
+## Example of rclone
+# rclone:
+#   destination: "gdrive:/vaultwarden"
+#   conf:
+#     secretName: "rclone-config"
+#     key: "rclone.conf"
+#     fileName: "rclone.conf"
+#     mountPath: "/etc/rclone"
+#   preserveArchive: false
+
+## Additional volumes
+volumes: []
+# - name: foo
+#   emptyDir: {}
+
+## Additional volumeMounts
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+image:
+  repository: ghcr.io/dayflower/backup-vaultwarden
+  pullPolicy: IfNotPresent
+  tag: ""
+
+job: {}
+# job:
+#   restartPolicy: Never
+#   backoffLimit: 0
+
+pod:
+  annotations: {}
+
+  labels: {}
+
+  resources: {}
+
+  securityContext: {}
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}

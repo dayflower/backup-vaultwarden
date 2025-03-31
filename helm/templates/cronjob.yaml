@@ -1,0 +1,122 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "backup-vaultwarden.fullname" . }}
+  labels:
+    {{- include "backup-vaultwarden.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.schedule }}
+
+  jobTemplate:
+    metadata:
+      {{- with .Values.pod.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "backup-vaultwarden.labels" . | nindent 8 }}
+        {{- with .Values.pod.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+
+    spec:
+      {{- if ne .Values.job.backoffLimit nil }}
+      backoffLimit: {{ .Values.job.backoffLimit }}
+      {{- end }}
+      template:
+        spec:
+          containers:
+            - name: {{ .Chart.Name }}
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args:
+                {{- if .Values.backup.fileName }}
+                - "-o"
+                - {{ .Values.backup.fileName | quote }}
+                {{- end }}
+                {{- if .Values.backup.target }}
+                - "-t"
+                - {{ .Values.backup.target | quote }}
+                {{- end }}
+                {{- if .Values.backup.logLevel }}
+                - "-l"
+                - {{ .Values.backup.logLevel | quote }}
+                {{- end }}
+                {{- if .Values.rclone.destination }}
+                - "-r"
+                - {{ .Values.rclone.destination | quote }}
+                - "-c"
+                - {{ quote (printf "%s/%s" (.Values.rclone.conf.mountPath | default "/etc/rclone") (.Values.rclone.conf.fileName | default "rclone.conf")) }}
+                {{- end }}
+                {{- if .Values.rclone.preserveArchive }}
+                - "-k"
+                {{- end }}
+                {{- with .Values.backup.encrypt }}
+                {{- if .secretName }}
+                - "-e"
+                {{- end }}
+                {{- end }}
+                - {{ .Values.data.mountPath | default "/data" | quote }}
+              {{- with .Values.backup.encrypt }}
+              {{- if .secretName }}
+              env:
+                - name: BACKUP_PASSPHRASE
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .secretName | quote }}
+                      key: {{ .key | default "BACKUP_PASSPHRASE" | quote }}
+              {{- end }}
+              {{- end }}
+              volumeMounts:
+                - name: {{ .Values.data.volume.name | required "data.volume.name is required" | quote }}
+                  mountPath: {{ .Values.data.mountPath | default "/data" | quote }}
+                {{- if .Values.rclone.destination }}
+                - name: rclone-conf
+                  mountPath: {{ .Values.rclone.conf.mountPath | default "/etc/rclone" | quote }}
+                  readOnly: true
+                {{- end }}
+                {{- with .Values.volumeMounts }}
+                {{- toYaml . | nindent 16 }}
+                {{- end }}
+              resources:
+                {{- with .Values.pod }}
+                {{- toYaml .resources | nindent 16 }}
+                {{- end }}
+
+          volumes:
+            - {{- toYaml .Values.data.volume | nindent 14 }}
+            {{- if .Values.rclone.destination }}
+            - name: rclone-conf
+              secret:
+                secretName: {{ .Values.rclone.conf.secretName | required "rclone.conf.secretName is required when rclone.destination is defined" | quote }}
+                items:
+                  - key: {{ .Values.rclone.conf.key | default "rclone.conf" | quote }}
+                    path: {{ .Values.rclone.conf.fileName | default "rclone.conf" | quote }}
+            {{- end }}
+            {{- with .Values.volumes }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+          restartPolicy: {{ .Values.job.restartPolicy | default "Never" }}
+
+          {{- with .Values.pod }}
+          {{- with .securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          {{- with .tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
