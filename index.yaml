@@ -1,0 +1,14 @@
+apiVersion: v1
+entries:
+  backup-vaultwarden:
+  - apiVersion: v2
+    appVersion: 0.0.5
+    created: "2025-03-31T13:36:17.051878055Z"
+    description: A Helm chart for backup-vaultwarden
+    digest: e3c013e9d41457b9822cfcf01175a5cfabe79f7d12ed56b7f0431f428829cf2b
+    name: backup-vaultwarden
+    type: application
+    urls:
+    - https://github.com/dayflower/backup-vaultwarden/releases/download/backup-vaultwarden-0.0.1/backup-vaultwarden-0.0.1.tgz
+    version: 0.0.1
+generated: "2025-03-31T13:36:17.05190246Z"
