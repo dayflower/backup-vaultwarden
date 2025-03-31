@@ -98,9 +98,14 @@ func (bv *bvCtx) backupFilePattern(pattern string) error {
 	}
 
 	for _, match := range matches {
-		bv.logger.Debug(fmt.Sprintf("Found %s", match))
+		rel, err := filepath.Rel(bv.srcdir, match)
+		if err != nil {
+			return err
+		}
 
-		err = bv.backupFile(match)
+		bv.logger.Debug(fmt.Sprintf("Found %s", rel))
+
+		err = bv.backupFile(rel)
 		if err != nil {
 			return err
 		}
