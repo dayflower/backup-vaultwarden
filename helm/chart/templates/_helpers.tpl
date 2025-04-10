@@ -60,3 +60,50 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+
+
+{{/*
+Rclone config file mount path
+*/}}
+{{- define "backup-vaultwarden.rCloneConfMountPath" -}}
+{{- if .Values.rclone.destination }}
+{{- default "/etc/rclone" .Values.rclone.conf.mountPath }}
+{{- end }}
+{{- end }}
+
+{{/*
+Rclone source config file mount path
+*/}}
+{{- define "backup-vaultwarden.rCloneSourceConfMountPath" -}}
+{{- if .Values.rclone.destination }}
+{{- default "/etc/default/rclone" .Values.rclone.sourceConf.mountPath }}
+{{- end }}
+{{- end }}
+
+{{/*
+Rclone config file name
+*/}}
+{{- define "backup-vaultwarden.rCloneConfFileName" -}}
+{{- if .Values.rclone.destination }}
+{{- default "rclone.conf" .Values.rclone.conf.fileName }}
+{{- end }}
+{{- end }}
+
+{{/*
+Rclone config file full path
+*/}}
+{{- define "backup-vaultwarden.rCloneConfFullFileName" -}}
+{{- if .Values.rclone.destination }}
+{{- printf "%s/%s" (include "backup-vaultwarden.rCloneConfMountPath" .) (include "backup-vaultwarden.rCloneConfFileName" .) }}
+{{- end }}
+{{- end }}
+
+{{/*
+Rclone config source file full path
+*/}}
+{{- define "backup-vaultwarden.rCloneSourceConfFullFileName" -}}
+{{- if .Values.rclone.destination }}
+{{- printf "%s/%s" (include "backup-vaultwarden.rCloneSourceConfMountPath" .) (include "backup-vaultwarden.rCloneConfFileName" .) }}
+{{- end }}
+{{- end }}

@@ -25,6 +25,28 @@ spec:
       {{- end }}
       template:
         spec:
+          {{- if .Values.rclone.destination }}
+          initContainers:
+            - name: setup-rclone-config
+              image: busybox:latest
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eux;
+                  if [ ! -e {{ include "backup-vaultwarden.rCloneConfFullFileName" . | quote }} ]; then
+                    echo "No rclone config found, copying from source";
+                    cp {{ include "backup-vaultwarden.rCloneSourceConfFullFileName" . | quote }} {{ include "backup-vaultwarden.rCloneConfFullFileName" . | quote }};
+                  else
+                    echo "rclone config already exists, skipping copy";
+                  fi;
+              volumeMounts:
+                - name: {{ .Values.rclone.liveConf.volume.name | required "rclone.liveConf.volume.name is required" | quote }}
+                  mountPath: {{ include "backup-vaultwarden.rCloneConfMountPath" . | quote }}
+                - name: rclone-conf-source
+                  mountPath: {{ include "backup-vaultwarden.rCloneSourceConfMountPath" . | quote }}
+                  readOnly: true
+          {{- end }}
           containers:
             - name: {{ .Chart.Name }}
               image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -46,7 +68,7 @@ spec:
                 - "-r"
                 - {{ .Values.rclone.destination | quote }}
                 - "-c"
-                - {{ quote (printf "%s/%s" (.Values.rclone.conf.mountPath | default "/etc/rclone") (.Values.rclone.conf.fileName | default "rclone.conf")) }}
+                - {{ include "backup-vaultwarden.rCloneConfFullFileName" . | quote }}
                 {{- end }}
                 {{- if .Values.rclone.preserveArchive }}
                 - "-k"
@@ -71,9 +93,8 @@ spec:
                 - name: {{ .Values.data.volume.name | required "data.volume.name is required" | quote }}
                   mountPath: {{ .Values.data.mountPath | default "/data" | quote }}
                 {{- if .Values.rclone.destination }}
-                - name: rclone-conf
-                  mountPath: {{ .Values.rclone.conf.mountPath | default "/etc/rclone" | quote }}
-                  readOnly: true
+                - name: {{ .Values.rclone.liveConf.volume.name | required "rclone.liveConf.volume.name is required" | quote }}
+                  mountPath: {{ include "backup-vaultwarden.rCloneConfMountPath" . | quote }}
                 {{- end }}
                 {{- with .Values.volumeMounts }}
                 {{- toYaml . | nindent 16 }}
@@ -86,12 +107,13 @@ spec:
           volumes:
             - {{- toYaml .Values.data.volume | nindent 14 }}
             {{- if .Values.rclone.destination }}
-            - name: rclone-conf
+            - {{- toYaml .Values.rclone.liveConf.volume | nindent 14 }}
+            - name: rclone-conf-source
               secret:
                 secretName: {{ .Values.rclone.conf.secretName | required "rclone.conf.secretName is required when rclone.destination is defined" | quote }}
                 items:
-                  - key: {{ .Values.rclone.conf.key | default "rclone.conf" | quote }}
-                    path: {{ .Values.rclone.conf.fileName | default "rclone.conf" | quote }}
+                  - key: {{ .Values.rclone.conf.secretKey | default "rclone.conf" | quote }}
+                    path: {{ include "backup-vaultwarden.rCloneConfFileName" . | quote }}
             {{- end }}
             {{- with .Values.volumes }}
             {{- toYaml . | nindent 12 }}

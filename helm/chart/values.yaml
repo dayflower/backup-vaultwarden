@@ -7,13 +7,16 @@ schedule: "0 1 * * *" # At 01:00 on every day
 
 backup:
   # fileName: "backup.tar.gz"
+
   # target: "default"
+
   encrypt: {}
   ## If backup.encrypt.secretName is specified, the backup will be encrypted using the passphrase stored in the secret.
   # encrypt:
   #   secretName: "vaultwarden-backup-passphrase"
   #   key: "BACKUP_PASSPHRASE"
-  logLevel: "debug"
+
+  # logLevel: "info"
 
 ## Example of backup
 # backup:
@@ -22,26 +25,47 @@ backup:
 #   encrypt:
 #     secretName: "vaultwarden-backup-passphrase"
 #     key: "passphrase"
-#   logLevel: "info"
+#   logLevel: "debug"
 
 data:
+  # mountPath: "/data"
+
   volume:
     name: "data"
-  # mountPath: "/data"
+
+    ## You must specify volume resource setting for "data" here.
+    ## Example:
+    # data:
+    #   volume:
+    #     name: "data"
+    #     persistentVolumeClaim:
+    #       claimName: "vaultwarden-data-pvc"
 
 rclone:
   ## If rclone.destination is specified, the backup will be uploaded to the specified destination using rclone.
+
   ## The destination must be in the format of <remote>:<path>.
   ## For example, "gdrive:/vaultwarden" for Google Drive.
   ## Do not specify file name. Just specify the destination directory only.
   ## You must set rclone.conf.secretName when the destination is specified.
   # destination: "..."
+
+  ## If rclone.destination is specified, you must set rclone.conf in a secret resource form.
   conf: {}
   # conf:
-  #   secretName: "rclone-config"
-  #   key: "rclone.conf"
+  #   secretName: "..."
+  #   secretKey: "..."
   #   fileName: "rclone.conf"
   #   mountPath: "/etc/rclone"
+
+  sourceConf:
+    mountPath: "/etc/default/rclone"
+
+  ## If rclone.destination is specified, you must set rclone.liveConf.volume for rclone.conf storage,
+  ## because rclone.conf is updated by rclone command.
+  liveConf:
+    volume: {}
+
   # preserveArchive: false
 
 ## Example of rclone
@@ -49,9 +73,14 @@ rclone:
 #   destination: "gdrive:/vaultwarden"
 #   conf:
 #     secretName: "rclone-config"
-#     key: "rclone.conf"
+#     secretKey: "rclone.conf"
 #     fileName: "rclone.conf"
 #     mountPath: "/etc/rclone"
+#   liveConf:
+#     volume:
+#       name: "backup-vaultwarden-conf"
+#       persistentVolumeClaim:
+#         claimName: "backup-vaultwarden-conf-pvc"
 #   preserveArchive: false
 
 ## Additional volumes
@@ -73,7 +102,7 @@ image:
 job: {}
 # job:
 #   restartPolicy: Never
-#   backoffLimit: 0
+#   backoffLimit: 6
 
 pod:
   annotations: {}
