@@ -115,6 +115,15 @@ Here's an example of how to run the backup using Docker:
 - `-v $(HOME)/.config/rclone:/config/rclone:ro`: Mounts your rclone configuration directory to `/config/rclone` inside the container in read-only mode.
 - `-v $(PWD):/backup`: Mounts your current working directory to `/backup` inside the container. This is where the `vw.tar.gz` backup file will be created and preserved.
 
+## Helm Chart
+
+For Kubernetes (K8s) environments, a Helm chart is also provided.
+
+The Helm repository is available at:
+`https://dayflower.github.io/backup-vaultwarden`
+
+For detailed information on chart configuration and usage, please refer to the [helm/README.md](helm/README.md) file.
+
 ## Important Security Note
 
 When uploading backup files to cloud storage, it is **crucial** to ensure that the uploaded files are not publicly accessible. Leaking your Vaultwarden backup could expose sensitive information.
