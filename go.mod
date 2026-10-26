@@ -1,8 +1,6 @@
 module github.com/dayflower/backup-vaultwarden
 
-go 1.23.0
-
-toolchain go1.23.7
+go 1.24
 
 require (
 	github.com/Luzifer/go-openssl/v4 v4.2.4
@@ -114,7 +112,7 @@ require (
 	github.com/jlaffaye/ftp v0.2.1-0.20240918233326-1b970516f5d3 // indirect
 	github.com/jtolio/noiseconn v0.0.0-20231127013910-f6d9ecbf1de7 // indirect
 	github.com/jzelinskie/whirlpool v0.0.0-20201016144138-0675e54bb004 // indirect
-	github.com/klauspost/compress v1.17.11 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
 	github.com/koofr/go-httpclient v0.0.0-20240520111329-e20f8f203988 // indirect
 	github.com/koofr/go-koofrclient v0.0.0-20221207135200-cbd7fc9ad6a6 // indirect
